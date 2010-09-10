@@ -28,7 +28,7 @@ Downloads a version into a tarball. Really just a wrapper around debootstrap.
 
   function download() {
     local version=$1
-    sudo debootstrap $version --make-tarball=$root/versions/$version
+    sudo debootstrap --make-tarball=$root/versions/$version $version
   }
 
 Creating.
