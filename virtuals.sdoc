@@ -1,0 +1,63 @@
+#!/bin/bash
+
+Creates and manages virtual UML-based instances. The system is optimized to require minimal downloading (so you don't have to run Squid to cache the packages), and to create different
+templates for machine instances. It can also set up your local network tables to have the host computer act as a gateway for a virtual LAN. The only bad part is that you have to explicitly set
+the network adapter on the host; I hope to eliminate this lameness in the future.
+
+Configuration and setup.
+
+  root=~/images
+  mkdir -p $root/{customizations,instances,versions}
+
+Commands.
+Commands are specified as ./virtuals <command> <arguments...>. They are:
+
+| download <version>
+  create <name> <version> [<customizations...>]
+  run <name> [<options...>]
+  nat <interface>
+
+Downloading.
+Downloads a version into a tarball. Really just a wrapper around debootstrap.
+
+  function download() {
+    local version=$1
+    debootstrap $version --make-tarball=$root/versions/$version
+  }
+
+Creating.
+Creates a fully installed instance from a version and an optional list of customizations. Customizations are just executable scripts that will be run as root, chrooted inside the new instance
+directory. For example, this would be a reasonable customization:
+
+| #!/bin/bash
+  aptitude -y install openssh-server
+
+If this customization were installed as $root/customizations/ssh, then you would invoke create as 'create foo lenny ssh' (optionally with more configurations following).
+
+  function create() {
+    local name=$1
+    local version=$2
+    shift
+    shift
+
+    mkdir -p $root/instances/$name
+    debootstrap --variant=fakechroot --unpack-tarball=$root/versions/$version $root/instances/$name
+
+    cd $root/instances/$name
+    for script in "$@"; do
+      [[ -x $script ]] && sudo chroot $root/instances/$name $root/customizations/$script 
+    done
+
+    # Constant 64G filesystem. You'll have to monitor disk space usage from the host.
+    sudo humfsify $(whoami) users 64G
+  }
+
+Running.
+Passes in a default set of networking options and by default uses 128MB of memory for the instance. You can also specify additional options for UML.
+
+  function run() {
+    local name=$1
+    shift
+
+    linux rootfstype=humfs rootflags=$root/instances/$name mem=128M umid=$name eth0=tuntap,,,192.168.254.1 xterm=gnome-terminal,-t,-x
+  }
