@@ -17,12 +17,18 @@ Commands are specified as ./virtuals <command> <arguments...>. They are:
   run <name> [<options...>]
   nat <interface>
 
+  function main() {
+    local command=$1
+    shift
+    $command "$@"
+  }
+
 Downloading.
 Downloads a version into a tarball. Really just a wrapper around debootstrap.
 
   function download() {
     local version=$1
-    debootstrap $version --make-tarball=$root/versions/$version
+    sudo debootstrap $version --make-tarball=$root/versions/$version
   }
 
 Creating.
@@ -41,7 +47,7 @@ If this customization were installed as $root/customizations/ssh, then you would
     shift
 
     mkdir -p $root/instances/$name
-    debootstrap --variant=fakechroot --unpack-tarball=$root/versions/$version $root/instances/$name
+    sudo debootstrap --variant=fakechroot --unpack-tarball=$root/versions/$version $root/instances/$name
 
     cd $root/instances/$name
     for script in "$@"; do
@@ -61,3 +67,5 @@ Passes in a default set of networking options and by default uses 128MB of memor
 
     linux rootfstype=humfs rootflags=$root/instances/$name mem=128M umid=$name eth0=tuntap,,,192.168.254.1 xterm=gnome-terminal,-t,-x
   }
+
+  main "$@"
