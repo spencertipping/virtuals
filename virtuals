@@ -46,7 +46,33 @@
 # | #!/bin/bash
 #   aptitude -y install openssh-server
 
-# If this customization were installed as $root/customizations/ssh, then you would invoke create as 'create foo lenny ssh' (optionally with more configurations following).
+# If this customization were installed as $root/customizations/ssh, then you would invoke create as 'create foo lenny ssh' (optionally with more configurations following). Note that we always
+# drop a directory called '/virtuals' containing machine-specific information.
+
+  function create-fstab() {
+    local mountpoint=$1
+    mknod --mode=600 $mountpoint/dev/ubd0 b 98 0
+    chown root $mountpoint/dev/ubd0
+    echo /dev/ubd0 /     ext3 defaults 0 1  > $mountpoint/etc/fstab
+    echo proc      /proc proc defaults 0 1 >> $mountpoint/etc/fstab
+  }
+
+  function create-hostname() {
+    local mountpoint=$1
+    echo $(< $mountpoint/virtuals/name) > $mountpoint/etc/hostname
+  }
+
+  function create-initial-user() {
+    local mountpoint=$1
+    chroot $mountpoint addgroup admin
+    chroot $mountpoint adduser --ingroup admin $(whoami)
+    echo '%admin ALL=(ALL) ALL' > $mountpoint/etc/sudoers
+  }
+
+  function cleanup-persistent-net-generator() {
+    local mountpoint=$1
+    rm $mountpoint/etc/udev/rules.d/*-persistent-net-generator.rules
+  }
 
   function create() {
     local name=$1
@@ -57,10 +83,23 @@
     [[ -d $root/instances/$name ]] && sudo rm -rf $root/instances/$name
     mkdir -p $root/instances/$name/mount-point
 
-    sudo dd bs=1M seek=2048 count=0 if=/dev/zero of=$root/instances/$name/disk
-    sudo mkfs.ext3 $root/instances/$name/disk
+    sudo dd bs=1M seek=2048 count=1 if=/dev/zero of=$root/instances/$name/disk
+    sudo mkfs.ext3 -F $root/instances/$name/disk
     sudo mount -o loop -t ext3 $root/instances/$name/disk $root/instances/$name/mount-point
+
+    sudo mkdir $root/instances/$name/mount-point/virtuals
+    sudo sh <<<"echo $name                                               > $root/instances/$name/mount-point/virtuals/name"
+    sudo sh <<<"echo $(whoami)                                           > $root/instances/$name/mount-point/virtuals/user"
+    sudo sh <<<"echo 192.168.254.$((10 + $(ls $root/instances | wc -l))) > $root/instances/$name/mount-point/virtuals/ip-address"
     sudo debootstrap --variant=minbase --unpack-tarball=$root/versions/$version.tgz $version $root/instances/$name/mount-point || return $?
+
+    sudo create-fstab                     $root/instances/$name/mount-point
+    sudo create-hostname                  $root/instances/$name/mount-point
+    sudo create-initial-user              $root/instances/$name/mount-point
+    sudo cleanup-persistent-net-generator $root/instances/$name/mount-point
+
+    sudo cp $root/bootstrap $root/instances/$name/mount-point/virtuals/bootstrap
+    sudo ln -s $root/instances/$name/mount-point/virtuals/bootstrap $root/instances/$name/mount-point/etc/rc2.d/S99bootstrap
 
     for script in "$@"; do
       [[ -x $script ]] && sudo chroot $root/instances/$name/mount-point $root/customizations/$script
@@ -81,6 +120,17 @@
            mem=128M umid=$name \
           eth0=tuntap,,,192.168.254.1 \
          xterm=gnome-terminal,-t,-x "$@"
+  }
+
+# NAT initialization.
+# Sets up the host machine as a gateway that uses NAT to forward Internet-bound requests from the virtual LAN.
+
+  function nat() {
+    local interface=$1
+    sudo iptables -F
+    sudo iptables -t nat -F
+    sudo iptables -X
+    sudo iptables -t nat -A POSTROUTING -o $interface -j MASQUERADE
   }
 
   main "$@"

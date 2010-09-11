@@ -1,0 +1,3 @@
+Virtuals is a shell script that helps automate the creation and management of
+user-mode linux instances. See virtuals.sdoc for the combined documentation
+and source code.
