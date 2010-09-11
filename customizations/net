@@ -1,0 +1,8 @@
+#!/bin/bash
+echo 127.0.0.1 localhost $(< /virtual/name) >> /etc/hosts
+
+echo auto lo                >> /etc/network/interfaces
+echo iface lo inet loopback >> /etc/network/interfaces
+echo auto eth0              >> /etc/network/interfaces
+echo iface eth0 inet static >> /etc/network/interfaces
+echo address $(< /virtual/ip)

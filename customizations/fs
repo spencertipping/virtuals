@@ -1,0 +1,5 @@
+#!/bin/bash
+mknod --mode=600 /dev/ubd0 b 98 0
+chown root /dev/ubd0
+echo /dev/ubd0 /     ext3 defaults 0 1 >> /etc/fstab
+echo proc      /proc proc defaults 0 1 >> /etc/fstab

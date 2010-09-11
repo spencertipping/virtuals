@@ -7,6 +7,8 @@
 # Configuration and setup.
 
   root=~/images
+  packages=module-init-tools,udev,aptitude,ifupdown,iproute,pump,nano,wget,netbase,adduser
+
   mkdir -p $root/{customizations,instances,versions}
 
 # Commands.
@@ -36,7 +38,9 @@
       *)      echo Unknown mirror: $server && exit 1 ;;
     esac
 
-    sudo debootstrap --make-tarball=$root/versions/$version.tgz $version $root/versions/$version-directory $url
+    sudo debootstrap --make-tarball=$root/versions/$version.tgz \
+                     --include=$packages \
+                       $version $root/versions/$version-directory $url
   }
 
 # Creating.
@@ -51,27 +55,27 @@
 
   function create-fstab() {
     local mountpoint=$1
-    mknod --mode=600 $mountpoint/dev/ubd0 b 98 0
-    chown root $mountpoint/dev/ubd0
-    echo /dev/ubd0 /     ext3 defaults 0 1  > $mountpoint/etc/fstab
-    echo proc      /proc proc defaults 0 1 >> $mountpoint/etc/fstab
+    sudo mknod --mode=600 $mountpoint/dev/ubd0 b 98 0
+    sudo chown root $mountpoint/dev/ubd0
+    sudo sh <<<"echo /dev/ubd0 /     ext3 defaults 0 1  > $mountpoint/etc/fstab"
+    sudo sh <<<"echo proc      /proc proc defaults 0 1 >> $mountpoint/etc/fstab"
   }
 
   function create-hostname() {
     local mountpoint=$1
-    echo $(< $mountpoint/virtuals/name) > $mountpoint/etc/hostname
+    sudo sh <<<"echo $(< $mountpoint/virtuals/name) > $mountpoint/etc/hostname"
   }
 
   function create-initial-user() {
     local mountpoint=$1
-    chroot $mountpoint addgroup admin
-    chroot $mountpoint adduser --ingroup admin $(whoami)
-    echo '%admin ALL=(ALL) ALL' > $mountpoint/etc/sudoers
+    sudo chroot $mountpoint addgroup admin
+    sudo chroot $mountpoint adduser --ingroup admin $(whoami)
+    sudo sh <<<"echo '%admin ALL=(ALL) ALL' > $mountpoint/etc/sudoers"
   }
 
   function cleanup-persistent-net-generator() {
     local mountpoint=$1
-    rm $mountpoint/etc/udev/rules.d/*-persistent-net-generator.rules
+    sudo rm -f $mountpoint/etc/udev/rules.d/*-persistent-net-generator.rules
   }
 
   function create() {
@@ -91,12 +95,12 @@
     sudo sh <<<"echo $name                                               > $root/instances/$name/mount-point/virtuals/name"
     sudo sh <<<"echo $(whoami)                                           > $root/instances/$name/mount-point/virtuals/user"
     sudo sh <<<"echo 192.168.254.$((10 + $(ls $root/instances | wc -l))) > $root/instances/$name/mount-point/virtuals/ip-address"
-    sudo debootstrap --variant=minbase --unpack-tarball=$root/versions/$version.tgz $version $root/instances/$name/mount-point || return $?
+    sudo debootstrap --include=$packages --variant=minbase --unpack-tarball=$root/versions/$version.tgz $version $root/instances/$name/mount-point || return $?
 
-    sudo create-fstab                     $root/instances/$name/mount-point
-    sudo create-hostname                  $root/instances/$name/mount-point
-    sudo create-initial-user              $root/instances/$name/mount-point
-    sudo cleanup-persistent-net-generator $root/instances/$name/mount-point
+    create-fstab                     $root/instances/$name/mount-point
+    create-hostname                  $root/instances/$name/mount-point
+    create-initial-user              $root/instances/$name/mount-point
+    cleanup-persistent-net-generator $root/instances/$name/mount-point
 
     sudo cp $root/bootstrap $root/instances/$name/mount-point/virtuals/bootstrap
     sudo ln -s $root/instances/$name/mount-point/virtuals/bootstrap $root/instances/$name/mount-point/etc/rc2.d/S99bootstrap
