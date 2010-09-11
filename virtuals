@@ -28,7 +28,15 @@
 
   function download() {
     local version=$1
-    sudo debootstrap --make-tarball=$root/versions/$version $version
+    local server=${2:-debian}
+
+    case $server in
+      debian) local url='http://ftp.us.debian.org/debian' ;;
+      ubuntu) local url='http://us.archive.ubuntu.com/ubuntu' ;;
+      *)      echo Unknown mirror: $server && exit 1 ;;
+    esac
+
+    sudo debootstrap --make-tarball=$root/versions/$version.tgz $version $root/versions/$version-directory $url
   }
 
 # Creating.
@@ -46,16 +54,20 @@
     shift
     shift
 
-    mkdir -p $root/instances/$name
-    sudo debootstrap --variant=fakechroot --unpack-tarball=$root/versions/$version $root/instances/$name
+    [[ -d $root/instances/$name ]] && sudo rm -rf $root/instances/$name
+    mkdir -p $root/instances/$name/mount-point
 
-    cd $root/instances/$name
+    sudo dd bs=1M seek=2048 count=0 if=/dev/zero of=$root/instances/$name/disk
+    sudo mkfs.ext3 $root/instances/$name/disk
+    sudo mount -o loop -t ext3 $root/instances/$name/disk $root/instances/$name/mount-point
+    sudo debootstrap --variant=minbase --unpack-tarball=$root/versions/$version.tgz $version $root/instances/$name/mount-point || return $?
+
     for script in "$@"; do
-      [[ -x $script ]] && sudo chroot $root/instances/$name $root/customizations/$script 
+      [[ -x $script ]] && sudo chroot $root/instances/$name/mount-point $root/customizations/$script
     done
 
-    # Constant 64G filesystem. You'll have to monitor disk space usage from the host.
-    sudo humfsify $(whoami) users 64G
+    sudo umount $root/instances/$name/mount-point
+    sudo chown $(whoami) $root/instances/$name/disk
   }
 
 # Running.
@@ -65,7 +77,10 @@
     local name=$1
     shift
 
-    linux rootfstype=humfs rootflags=$root/instances/$name mem=128M umid=$name eth0=tuntap,,,192.168.254.1 xterm=gnome-terminal,-t,-x
+    linux ubd0=$root/instances/$name/disk \
+           mem=128M umid=$name \
+          eth0=tuntap,,,192.168.254.1 \
+         xterm=gnome-terminal,-t,-x "$@"
   }
 
   main "$@"
