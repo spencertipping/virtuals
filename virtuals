@@ -127,7 +127,7 @@
     linux ubd0=$root/instances/$name/disk \
            mem=128M umid=$name \
           eth0=tuntap,,,192.168.254.1 \
-         xterm=gnome-terminal,-t,-x "$@"
+         xterm=terminator,-T,-x "$@"
   }
 
 # NAT initialization.
