@@ -11,3 +11,5 @@ download the DNS information from the host machine, and use rootfs to mount the 
     ssh $(< /virtuals/user)@192.168.254.1 'cat /etc/resolv.conf' > /etc/resolv.conf
     /etc/init.d/networking restart
   }
+
+  setup-networking

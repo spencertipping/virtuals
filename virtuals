@@ -10,6 +10,10 @@
   packages=module-init-tools,udev,aptitude,ifupdown,iproute,pump,nano,wget,netbase,adduser
 
   mkdir -p $root/{customizations,instances,versions}
+  if [[ ! -x $root/bootstrap ]]; then
+    echo error: an executable file called bootstrap should be present in $root.
+    exit 1
+  fi
 
 # Commands.
 # Commands are specified as ./virtuals <command> <arguments...>. They are:
