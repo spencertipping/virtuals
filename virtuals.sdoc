@@ -21,7 +21,6 @@ Commands are specified as ./virtuals <command> <arguments...>. They are:
 | download <version>
   create <name> <version> [<customizations...>]
   run <name> [<options...>]
-  nat <interface>
 
   function main() {
     local command=$1
