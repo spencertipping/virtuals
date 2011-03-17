@@ -7,7 +7,7 @@ instance.)
 Configuration and setup.
 
   root=~/images
-  packages=module-init-tools,udev,aptitude,ifupdown,iproute,pump,nano,wget,netbase,adduser,sudo,openssh-server,git-core,iputils-ping
+  packages=module-init-tools,udev,aptitude,ifupdown,iproute,nano,wget,netbase,adduser,sudo,openssh-server,git-core,iputils-ping
 
   mkdir -p $root/{customizations,instances,versions}
   if [[ ! -x $root/bootstrap ]]; then
