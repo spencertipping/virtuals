@@ -1,13 +1,13 @@
 #!/bin/bash
 
 Creates and manages virtual UML-based instances. The system is optimized to require minimal downloading (so you don't have to run Squid to cache the packages), and to create different
-templates for machine instances. It can also set up your local network tables to have the host computer act as a gateway for a virtual LAN. The only bad part is that you have to explicitly set
-the network adapter on the host; I hope to eliminate this lameness in the future.
+templates for machine instances. It can also set up your local network tables to have the host computer act as a gateway for a virtual LAN. (It does this by default when you run a virtual
+instance.)
 
 Configuration and setup.
 
   root=~/images
-  packages=module-init-tools,udev,aptitude,ifupdown,iproute,pump,nano,wget,netbase,adduser
+  packages=module-init-tools,udev,aptitude,ifupdown,iproute,pump,nano,wget,netbase,adduser,sudo,openssh-server
 
   mkdir -p $root/{customizations,instances,versions}
   if [[ ! -x $root/bootstrap ]]; then
@@ -124,6 +124,7 @@ Passes in a default set of networking options and by default uses 128MB of memor
     local name=$1
     shift
 
+    nat
     linux ubd0=$root/instances/$name/disk \
            mem=128M umid=$name \
           eth0=tuntap,,,192.168.254.1 \
@@ -134,11 +135,13 @@ NAT initialization.
 Sets up the host machine as a gateway that uses NAT to forward Internet-bound requests from the virtual LAN.
 
   function nat() {
-    local interface=$1
+    echo Reinitializing NAT...
+    local interface=$(route -en | grep '^0.0.0.0' | head -n1 | awk '{print $8}')
     sudo iptables -F
     sudo iptables -t nat -F
     sudo iptables -X
     sudo iptables -t nat -A POSTROUTING -o $interface -j MASQUERADE
+    echo Done
   }
 
   main "$@"
